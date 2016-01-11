@@ -7,7 +7,7 @@ var di = require('di');
 
 module.exports = Runner;
 
-di.annotate(Runner, new di.Provide('Http'));
+di.annotate(Runner, new di.Provide('app'));
 di.annotate(Runner, new di.Inject(
         'Http.Server',
         'Services.Core',
@@ -16,7 +16,8 @@ di.annotate(Runner, new di.Inject(
         'Templates',
         'common-api-router',
         'fileService',
-        'Promise'
+        'Promise',
+        'Http.Services.SkuPack'
     )
 );
 function Runner(
@@ -27,7 +28,8 @@ function Runner(
     templates,
     router,
     fileService,
-    Promise
+    Promise,
+    skuPack
 ) {
 
     function start() {
@@ -44,7 +46,10 @@ function Runner(
                 });
             })
             .then(function() {
-                app.listen();
+                return skuPack.start(configuration.get('skuPackRoot', './skupack.d'));
+            })
+            .then(function() {
+                return app.listen();
             });
     }
 

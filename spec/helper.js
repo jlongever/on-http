@@ -35,13 +35,14 @@ helper.startServer = function (overrides) {
     helper.injector.get('Services.Configuration')
         .set('httpEnabled', true)
         .set('httpsEnabled', false)
-        .set('httpBindPort', 8089);
+        .set('httpBindPort', 8089)
+        .set('skuPackRoot', 'spec/lib/services/sku-static');
 
-    return helper.injector.get('Http').start();
+    return helper.injector.get('app').start();
 };
 
 helper.stopServer = function () {
-    return helper.injector.get('Http').stop();
+    return helper.injector.get('app').stop();
 };
 
 helper.request = function (url, options) {

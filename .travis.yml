@@ -1,5 +1,5 @@
 language: node_js
-
+sudo: true
 node_js:
   - "0.10"
   - "4"
@@ -8,6 +8,15 @@ matrix:
   allow_failures:
    - node_js: "4"
 
+addons:
+  apt:
+    packages:
+      - dh-make
+      - devscripts
+      - debhelper
+      - git
+      - default-jdk
+
 services:
  - mongodb
  - rabbitmq
@@ -15,6 +24,27 @@ services:
 after_success:
  - ./node_modules/.bin/istanbul cover -x "**/spec/**" ./node_modules/.bin/_mocha --report lcovonly -- $(find spec -name '*-spec.js') -R spec --require spec/helper.js
  - cat ./coverage/lcov.info | node_modules/.bin/coveralls
+
+before_deploy:
+ - npm run apidoc
+ - npm run apidoc-swagger
+ - npm prune --production
+ - sudo apt-get install -y maven
+ - git clone --branch v2.1.4 https://github.com/swagger-api/swagger-codegen.git
+ - pushd ./swagger-codegen && mvn package && popd
+ - java -jar ./swagger-codegen/modules/swagger-codegen-cli/target/swagger-codegen-cli.jar generate -i build/apidoc-swagger/swagger.json -o python-client -l python --additional-properties packageName=on_http
+ - ./build-package.bash on-http "${TRAVIS_BRANCH}"
+ - ./build-package.bash python-client "${TRAVIS_BRANCH}"
+ - mkdir deb && cp -a *.deb deb/
+
+deploy:
+  provider: bintray
+  file: .bintray.json
+  user: $BINTRAY_USER
+  key: $BINTRAY_KEY
+  on:
+    branch: master
+    node: "0.10"
 
 notifications:
   slack:
