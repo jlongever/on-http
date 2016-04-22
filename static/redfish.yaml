@@ -784,6 +784,25 @@ paths:
           description: Error
           schema:
             $ref: "#/definitions/ErrorResponse"
+  /EventService:
+    x-swagger-router-controller: event-service
+    get:
+      x-privileges: [ 'Login' ]
+      x-authentication-type: [ 'redfish', 'basic' ]
+      summary: retrieve list of policies used by event service listeners
+      operationId: eventServiceRoot
+      tags: [ "/redfish/v1" ]
+      responses:
+        200:
+          description: Success
+          schema:
+            $ref: "#/definitions/EventService.1.0.0_EventService"
+        401:
+          $ref: "#/responses/status_401"
+        403:
+          $ref: "#/responses/status_403"
+        501:
+          $ref: "#/responses/status_501"
   /EventService/Subscriptions:
     x-swagger-router-controller: event-service
     get:
@@ -967,25 +986,6 @@ paths:
           description: Error
           schema:
             $ref: "#/definitions/ErrorResponse"
-  /EventService:
-    x-swagger-router-controller: unimplemented
-    get:
-      x-privileges: [ 'Login' ]
-      x-authentication-type: [ 'redfish', 'basic' ]
-      summary: retrieve list of policies used by event service listeners
-      operationId: unimplemented
-      tags: [ "/redfish/v1" ]
-      responses:
-        200:
-          description: Success
-          schema:
-            $ref: "#/definitions/EventService.1.0.0_EventService"
-        401:
-          $ref: "#/responses/status_401"
-        403:
-          $ref: "#/responses/status_403"
-        501:
-          $ref: "#/responses/status_501"
   /Managers:
     x-swagger-router-controller: unimplemented
     get:
