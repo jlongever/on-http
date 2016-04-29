@@ -9,7 +9,7 @@
         <friendlyName>RackHD</friendlyName>
         <manufacturer>EMC Corporation</manufacturer>
         <modelName>RackHD</modelName>
-        <modelURL>http://rackhd.readthedocs.org/en/latest/#</modelURL>
+        <modelURL>http://rackhd.readthedocs.io/en/latest/</modelURL>
         <manufacturerURL>https://github.com/RackHD</manufacturerURL>
         <UDN>uuid:<%= udn %></UDN>
         <iconList>

@@ -20,6 +20,15 @@ describe("UPnP Service", function() {
         helper.setupInjector([
             helper.require("/lib/services/upnp-service")
         ]);
+        helper.injector.get('Services.Configuration')
+        .set('httpEndpoints', [{
+            'port': 9999,
+            'address': '1.2.3.4',
+            'httpsEnabled': false,
+            'routers': 'northbound-api-router'
+            }]
+        );
+        
         uPnPService = helper.injector.get('Http.Services.uPnP');
         systemUuid = helper.injector.get('SystemUuid');
         fs = helper.injector.get('fs');
@@ -68,36 +77,47 @@ describe("UPnP Service", function() {
             return expect(uPnPService.findNTRegistry('xyz')).to.deep.equal({});
         });
         
-        it('should run advertise-alive event', function() {
-            SSDP.prototype.on = sandbox.spy(function(event, callback) {
-                emitter.on('advertise-alive', function(header) {
+        it('should run advertise-alive event', function(done) {
+            SSDP.prototype.on = function(event, callback) {
+                emitter.on(event, function(header) {
                     callback.call(uPnPService, header);
                 });
-            });
+            };
             return uPnPService.start()
             .then(function() {
                 expect(uPnPService.registry[0].alive).to.equal(false);
                 emitter.emit('advertise-alive', {NT: uPnPService.registry[0].urn});
                 setImmediate(function() {
-                    return expect(uPnPService.registry[0].alive).to.equal(true);
+                    try {
+                        expect(uPnPService.registry[0].alive).to.equal(true);
+                        done();
+                    } catch(e) {
+                        done(e);
+                    }
                 });
             });
         });
         
-        it('should run advertise-bye event', function() {
-            SSDP.prototype.on = sandbox.spy(function(event, callback) {
-                emitter.on('advertise-bye', function(header) {
+        it('should run advertise-bye event', function(done) {
+            SSDP.prototype.on = function(event, callback) {
+                emitter.on(event, function(header) {
                     callback.call(uPnPService, header);
                 });
-            });
+            };
             return uPnPService.start()
             .then(function() {
                 uPnPService.registry[0].alive = true;
                 emitter.emit('advertise-bye', {NT: uPnPService.registry[0].urn});
                 setImmediate(function() {
-                    expect(uPnPService.registry[0].alive).to.equal(false);
+                    try {
+                        expect(uPnPService.registry[0].alive).to.equal(false);
+                        done();
+                    } catch(e) {
+                        done(e);
+                    }
                 });
             });
         });
     });
 });
+
