@@ -4,21 +4,36 @@
 'use strict';
 
 describe('Http.Api.Pollers', function () {
-    var taskProtocol;
+    var messenger;
+    var testMessage;
+    var testSubscription;
+    
     before('start HTTP server', function () {
         this.timeout(5000);
-        taskProtocol = {
-            requestPollerCache: sinon.stub()
-        };
-        return helper.startServer([
-            dihelper.simpleWrapper(taskProtocol, 'Protocol.Task')
-        ]);
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);     
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
+        return helper.startServer();
     });
 
     beforeEach('reset test DB', function () {
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
         return helper.reset().then(function() {
             return helper.injector.get('Views').load();
         });
+    });
+    
+    afterEach(function() {
+        messenger.publish.restore();
+        messenger.subscribe.restore();
     });
 
     after('stop HTTP server', function () {
@@ -300,7 +315,6 @@ describe('Http.Api.Pollers', function () {
 
         it('should return poller data from GET /pollers/:id/data', function () {
             var mockPollerData = [ { data: 'dummy' } ];
-            taskProtocol.requestPollerCache.resolves(mockPollerData);
             return helper.request().get('/api/2.0/pollers/' + poller.id + '/data')
             .expect('Content-Type', /^application\/json/)
             .expect(200, mockPollerData);
@@ -308,7 +322,6 @@ describe('Http.Api.Pollers', function () {
 
         it('should return poller data from GET /pollers/:id/data', function () {
             var mockPollerData = [ { data: 'dummy' }, { data: 'dummy latest'} ];
-            taskProtocol.requestPollerCache.resolves([mockPollerData[1]]);
             return helper.request().get('/api/2.0/pollers/' + poller.id + '/data/current')
             .expect('Content-Type', /^application\/json/)
             .expect(200, [mockPollerData[1]]);

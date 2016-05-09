@@ -4,7 +4,9 @@
 
 describe('Http.Api.Profiles', function () {
     var workflowApiService;
-    var taskProtocol;
+    var messenger;
+    var testMessage;
+    var testSubscription;
     var lookupService;
     var profiles;
     var presenter;
@@ -13,20 +15,22 @@ describe('Http.Api.Profiles', function () {
 
     before('start HTTP server', function () {
         this.timeout(5000);
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);
+                
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
         return helper.startServer([]);
     });
 
     beforeEach('set up mocks', function () {
-        taskProtocol = helper.injector.get('Protocol.Task');
         lookupService = helper.injector.get('Services.Lookup');
         Errors = helper.injector.get('Errors');
 
         sinon.stub(lookupService, 'ipAddressToMacAddress').resolves('00:00:00:00:00:00');
-
-        sinon.stub(taskProtocol, 'activeTaskExists').resolves({});
-        sinon.stub(taskProtocol, 'requestCommands').resolves({ testcommands: 'cmd' });
-        sinon.stub(taskProtocol, 'requestProfile').resolves();
-        sinon.stub(taskProtocol, 'requestProperties').resolves();
 
         workflowApiService = helper.injector.get('Http.Services.Api.Workflows');
         sinon.stub(workflowApiService, 'findActiveGraphForTarget').resolves({});
@@ -44,6 +48,12 @@ describe('Http.Api.Profiles', function () {
         sinon.stub(profileApiService, 'createNodeAndRunDiscovery').resolves({});
         sinon.stub(profileApiService, 'runDiscovery').resolves({});
         sinon.stub(profileApiService, 'setLookup').resolves();
+        
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
     });
 
     afterEach('teardown mocks', function () {
@@ -55,11 +65,12 @@ describe('Http.Api.Profiles', function () {
             }).value();
         }
         resetMocks(lookupService);
-        resetMocks(taskProtocol);
         resetMocks(workflowApiService);
         resetMocks(presenter.CommonApiPresenter.prototype);
         resetMocks(profiles);
         resetMocks(profileApiService);
+        messenger.publish.restore();
+        messenger.subscribe.restore();
     });
 
     after('stop HTTP server', function () {
@@ -207,8 +218,6 @@ describe('Http.Api.Profiles', function () {
             profileApiService.createNodeAndRunDiscovery.resolves({});
             profileApiService.getNode.resolves({});
             workflowApiService.findActiveGraphForTarget.resolves({});
-            taskProtocol.requestProfile.resolves('test.profile');
-            taskProtocol.requestProperties.rejects(new Error('Test workflow properties error'));
 
             return helper.request().get('/api/1.1/profiles')
                 .query({ macs: '00:00:de:ad:be:ef' })
@@ -222,8 +231,6 @@ describe('Http.Api.Profiles', function () {
             profileApiService.createNodeAndRunDiscovery.resolves({});
             profileApiService.getNode.resolves({});
             workflowApiService.findActiveGraphForTarget.resolves({});
-            taskProtocol.requestProfile.resolves('test.profile');
-            taskProtocol.requestProperties.resolves({});
 
             return helper.request().get('/api/1.1/profiles')
                 .query({ macs: '00:00:de:ad:be:ef' })
@@ -272,9 +279,6 @@ describe('Http.Api.Profiles', function () {
             profileApiService.getNode.resolves({ type: 'switch' });
             workflowApiService.findActiveGraphForTarget.resolves({});
 
-            taskProtocol.requestProfile.resolves('test.profile');
-            taskProtocol.requestProperties.rejects(new Error('Test workflow properties error'));
-
             return helper.request().get('/api/1.1/profiles/switch/testswitchvendor')
                 .expect(500, /Unable.*properties/);
         });
@@ -282,9 +286,6 @@ describe('Http.Api.Profiles', function () {
         it("should return a task specific profile for a switch with an active task", function() {
             profileApiService.getNode.resolves({ type: 'switch' });
             workflowApiService.findActiveGraphForTarget.resolves({});
-            taskProtocol.requestProfile.resolves('test.profile');
-            taskProtocol.requestProperties.resolves({});
-
             return helper.request().get('/api/1.1/profiles/switch/testswitchvendor')
                 .expect(200)
                 .expect(function() {
@@ -296,7 +297,6 @@ describe('Http.Api.Profiles', function () {
             profileApiService.getNode.restore();
             profileApiService.createNodeAndRunDiscovery.restore();
             profileApiService.runDiscovery.restore();
-            taskProtocol.activeTaskExists.rejects(new Error('test'));
             return helper.request().get('/api/1.1/profiles/switch/unknown')
                 .expect(400, /Unknown.*vendor/);
         });

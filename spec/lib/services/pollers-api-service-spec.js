@@ -6,10 +6,12 @@
 describe("Http.Services.Api.Pollers", function () {
     var pollerService;
     var waterline;
-    var taskProtocol;
     var Errors;
     var Promise;
-
+    var messenger;
+    var testMessage;
+    var testSubscription;
+    
     before("Http.Services.Api.Pollers before", function() {
         helper.setupInjector([
             helper.require("/lib/services/pollers-api-service.js")
@@ -23,12 +25,29 @@ describe("Http.Services.Api.Pollers", function () {
             updateByIdentifier: sinon.stub().resolves(),
             destroyByIdentifier: sinon.stub().resolves()
         };
-        taskProtocol = helper.injector.get("Protocol.Task");
-        taskProtocol.requestPollerCache = sinon.stub();
         pollerService = helper.injector.get("Http.Services.Api.Pollers");
         Errors = helper.injector.get("Errors");
         Promise = helper.injector.get('Promise');
-
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);     
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
+    });
+    
+    beforeEach(function() {
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
+    });
+    
+    afterEach(function() {
+        messenger.publish.restore();
+        messenger.subscribe.restore();
     });
 
     describe("getPollers", function() {
@@ -223,9 +242,6 @@ describe("Http.Services.Api.Pollers", function () {
                 config: {}
             }];
 
-
-            taskProtocol.requestPollerCache.resolves(mockPoller);
-
             return pollerService.getPollersByIdData().then(function (pollers) {
                 expect(pollers).to.deep.equal(mockPoller);
             });
@@ -246,7 +262,6 @@ describe("Http.Services.Api.Pollers", function () {
                 config: {}
             }];
 
-            taskProtocol.requestPollerCache.resolves(mockPoller);
             return pollerService.getPollersByIdDataCurrent().then(function (pollers) {
                 expect(pollers).to.deep.equal(mockPoller);
             });

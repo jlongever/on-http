@@ -9,7 +9,7 @@ describe('Redfish Systems Root', function () {
     var redfish;
     var waterline;
     var Promise;
-    var taskProtocol;
+    var pollerService;
     var template;
     var fs;
     var nodeApi;
@@ -43,8 +43,8 @@ describe('Redfish Systems Root', function () {
             Promise = helper.injector.get('Promise');
             Errors = helper.injector.get('Errors');
 
-            taskProtocol = helper.injector.get('Protocol.Task');
-            sinon.stub(taskProtocol);
+            pollerService = helper.injector.get('Http.Services.Api.Pollers');
+            sinon.stub(pollerService);
 
             nodeApi = helper.injector.get('Http.Services.Api.Nodes');
             sinon.stub(nodeApi, "setNodeWorkflowById");
@@ -74,7 +74,7 @@ describe('Redfish Systems Root', function () {
         resetStubs(waterline.nodes);
         resetStubs(waterline.catalogs);
         resetStubs(waterline.workitems);
-        resetStubs(taskProtocol);
+        resetStubs(pollerService);
 
         waterline.nodes.needByIdentifier.withArgs('1234abcd1234abcd1234abcd')
         .resolves(Promise.resolve({
@@ -107,7 +107,7 @@ describe('Redfish Systems Root', function () {
         restoreStubs(waterline.nodes);
         restoreStubs(waterline.catalogs);
         restoreStubs(waterline.workitems);
-        restoreStubs(taskProtocol);
+        restoreStubs(pollerService);
         return helper.stopServer();
     });
 
@@ -219,7 +219,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'chassis' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             chassis: { power: "Unknown", uid: "Unknown"}
         }])
 
@@ -251,7 +251,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'chassis' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             chassis: { power: "Unknown", uid: "Unknown"}
         }]);
 
@@ -395,7 +395,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'selInformation' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             selInformation: { '# of Alloc Units': 10, uid: "Unknown"}
         }]);
 
@@ -423,7 +423,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'sel' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sel: [{
                 logId: 'abcd',
                 value: 'Assert',
@@ -451,7 +451,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'sel' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sel: undefined
         }]);
 
@@ -481,7 +481,7 @@ describe('Redfish Systems Root', function () {
             config: { command: 'sel' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sel: [{
                 logId: 'abcd',
                 value: 'Assert',

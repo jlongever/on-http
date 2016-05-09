@@ -8,7 +8,7 @@ describe('Redfish Chassis Root', function () {
     var redfish;
     var waterline;
     var Promise;
-    var taskProtocol;
+    var pollerService;
     var fs;
     var validator;
     var env;
@@ -29,8 +29,8 @@ describe('Redfish Chassis Root', function () {
 
             Promise = helper.injector.get('Promise');
 
-            taskProtocol = helper.injector.get('Protocol.Task');
-            sinon.stub(taskProtocol);
+            pollerService = helper.injector.get('Http.Services.Api.Pollers');
+            sinon.stub(pollerService);
 
             env = helper.injector.get('Services.Environment');
             sinon.stub(env, "get").resolves();
@@ -59,7 +59,7 @@ describe('Redfish Chassis Root', function () {
         resetStubs(waterline.nodes);
         resetStubs(waterline.catalogs);
         resetStubs(waterline.workitems);
-        resetStubs(taskProtocol);
+        resetStubs(pollerService);
     });
 
     afterEach('tear down mocks', function () {
@@ -82,7 +82,7 @@ describe('Redfish Chassis Root', function () {
         restoreStubs(waterline.nodes);
         restoreStubs(waterline.catalogs);
         restoreStubs(waterline.workitems);
-        restoreStubs(taskProtocol);
+        restoreStubs(pollerService);
         return helper.stopServer();
     });
 
@@ -169,7 +169,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'chassis' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             chassis: { power: "Unknown", uid: "Unknown"}
         }]);
 
@@ -197,7 +197,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'chassis' }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             chassis: { power: "Unknown", uid: "Unknown"}
         }]);
 
@@ -217,7 +217,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'sdr', inCondition: {} }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sdr: [{
                 "Lower critical": "100.00",
                 "Lower non-critical": "",
@@ -262,7 +262,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'sdr', inCondition: {} }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sdr: [{
                 "Lower critical": "10.00",
                 "Lower non-critical": "",
@@ -307,7 +307,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'sdr', inCondition: {} }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sdr: [{
                 "lowerCritical": "100.00",
                 "lowerNonCritical": "",
@@ -352,7 +352,7 @@ describe('Redfish Chassis Root', function () {
             config: { command: 'sdr', inCondition: {} }
         }]);
 
-        taskProtocol.requestPollerCache.resolves([{
+        pollerService.requestPollerCache.resolves([{
             sdr: [{
                 "lowerCritical": "10.00",
                 "lowerNonCritical": "",

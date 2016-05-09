@@ -4,26 +4,28 @@
 'use strict';
 
 describe('Http.Api.Tasks', function () {
-    var taskProtocol;
     var tasksApiService;
     var lookupService;
     var templates;
-
+    var messenger;
+    var testMessage;
+    var testSubscription;
+    var Constants;
+    
     before('start HTTP server', function () {
         this.timeout(20000);
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);     
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
+        Constants = helper.injector.get('Constants');
         return helper.startServer();
     });
 
     beforeEach('set up mocks', function () {
-        taskProtocol = helper.injector.get('Protocol.Task');
-        // Defaults, you can tack on .resolves().rejects().resolves(), etc. like so
-        taskProtocol.activeTaskExists = sinon.stub().resolves();
-        taskProtocol.requestCommands = sinon.stub().resolves({
-                                                            "identifier":"1234", 
-                                                            "tasks": [ {"cmd": "testfoo"}
-                                                             ]});
-        taskProtocol.respondCommands = sinon.stub();
-
         tasksApiService = helper.injector.get('Http.Services.Api.Tasks');
         tasksApiService.getNode = sinon.stub();
 
@@ -31,19 +33,27 @@ describe('Http.Api.Tasks', function () {
         lookupService.ipAddressToMacAddress = sinon.stub().resolves('00:11:22:33:44:55');
 
         templates = helper.injector.get('Templates');
-
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
         return helper.reset().then(function(){
           return helper.injector.get('Views').load();
           });
     });
-
+    
+    afterEach(function() {
+        messenger.publish.restore();
+        messenger.subscribe.restore();
+    });
+    
     after('stop HTTP server', function () {
         return helper.stopServer();
     });
 
     describe('GET /tasks/:id', function () {
         it("should send down tasks", function() {
-            taskProtocol.activeTaskExists.resolves(null);
             return helper.request().get('/api/2.0/tasks/testnodeid')
             .expect(200)
             .expect(function (res) {
@@ -56,7 +66,6 @@ describe('Http.Api.Tasks', function () {
 
         it("should return 204 if no active task exists", function() {
             var tasksApiService = helper.injector.get('Http.Services.Api.Tasks');
-            taskProtocol.activeTaskExists.rejects(new tasksApiService.NoActiveTaskError());
             return helper.request().get('/api/2.0/tasks/testnodeid')
             .expect(204)
             .expect(function (res) {
@@ -65,7 +74,6 @@ describe('Http.Api.Tasks', function () {
         });
 
         it("should error if an active task exists but no commands are sent", function() {
-            taskProtocol.requestCommands.rejects(new Error(''));
             return helper.request().get('/api/2.0/tasks/testnodeid')
             .expect(404);
         });
@@ -128,7 +136,10 @@ describe('Http.Api.Tasks', function () {
             return helper.request().post('/api/2.0/tasks/123')
             .send(data)
             .expect(function () {
-                expect(taskProtocol.respondCommands).to.have.been.calledWith('123', data);
+                expect(messenger.subscribe).to.have.been.calledWith(
+                    Constants.Protocol.Exchanges.Task.Name,
+                    'methods.respondCommands.123'
+                );
             })
             .expect(201);
         });

@@ -7,17 +7,18 @@ describe('Http.Api.Templates', function () {
     var templates;
     var configuration;
     var lookupService;
-    var taskProtocol;
     var workflowApiService;
     var waterline;
     var environment;
-
+    var messenger;
+    var testMessage;
+    var testSubscription;
+    
     before('start HTTP server', function () {
         this.timeout(5000);
         templates = {
             load: sinon.stub()
         };
-        taskProtocol = {};
         workflowApiService = {};
         waterline = {
             start: sinon.stub(),
@@ -31,10 +32,16 @@ describe('Http.Api.Templates', function () {
             stop: sinon.stub(),
             get: sinon.stub()
         };
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);     
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
 
         return helper.startServer([
             dihelper.simpleWrapper(templates, 'Templates'),
-            dihelper.simpleWrapper(taskProtocol, 'Protocol.Task'),
             dihelper.simpleWrapper(workflowApiService, 'Http.Services.Api.Workflows'),
             dihelper.simpleWrapper(waterline, 'Services.Waterline'),
             dihelper.simpleWrapper(environment, 'Services.Environment')
@@ -55,11 +62,20 @@ describe('Http.Api.Templates', function () {
         lookupService.ipAddressToMacAddress = sinon.stub().resolves();
         lookupService.ipAddressToNodeId = sinon.stub().resolves();
         workflowApiService.findActiveGraphForTarget = sinon.stub().resolves();
-        taskProtocol.requestProperties = sinon.stub().resolves();
         waterline.nodes = {
             findByIdentifier: sinon.stub().resolves()
         };
         environment.get.resolves({});
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
+    });
+    
+    afterEach(function() {
+        messenger.publish.restore();
+        messenger.subscribe.restore();
     });
 
     var template = {
@@ -193,9 +209,6 @@ describe('Http.Api.Templates', function () {
         });
 
         it('should render a template with a custom task property', function () {
-            taskProtocol.requestProperties.resolves({
-                myprop: 'foobar'
-            });
             return templateRequest(
                 '<%= myprop %>',
                 'foobar'

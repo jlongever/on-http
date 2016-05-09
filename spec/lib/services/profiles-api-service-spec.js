@@ -5,12 +5,14 @@
 describe("Http.Services.Api.Profiles", function () {
     var profileApiService;
     var Errors;
-    var taskProtocol;
     var workflowApiService;
     var eventsProtocol;
     var waterline;
     var lookupService;
-
+    var messenger;
+    var testMessage;
+    var testSubscription;
+    
     before("Http.Services.Api.Profiles before", function() {
         helper.setupInjector([
             helper.di.simpleWrapper({}, 'TaskGraph.Store'),
@@ -24,29 +26,39 @@ describe("Http.Services.Api.Profiles", function () {
         waterline.nodes = {
             findByIdentifier: function() {}
         };
-        taskProtocol = helper.injector.get("Protocol.Task");
         workflowApiService = helper.injector.get("Http.Services.Api.Workflows");
         eventsProtocol = helper.injector.get("Protocol.Events");
         lookupService = helper.injector.get("Services.Lookup");
+        messenger = helper.injector.get('Services.Messenger');
+        var Message = helper.injector.get('Message');
+        testMessage = new Message({},{},{routingKey:'test.route.key'});
+        sinon.stub(testMessage);     
+        var Subscription = helper.injector.get('Subscription');
+        testSubscription = new Subscription({},{});
+        sinon.stub(testSubscription);
     });
 
     beforeEach("Http.Services.Api.Profiles beforeEach", function() {
         this.sandbox = sinon.sandbox.create();
+        sinon.stub(messenger, 'subscribe', function(name,id,callback) {
+            callback({value:'test'}, testMessage);
+            return Promise.resolve(testSubscription);
+        });
+        sinon.stub(messenger, 'publish').resolves();
+        sinon.stub(messenger, 'request').resolves();
     });
 
     afterEach("Http.Services.Api.Profiles afterEach", function() {
         this.sandbox.restore();
+        messenger.publish.restore();
+        messenger.subscribe.restore();
+        messenger.request.restore();
     });
 
     it("waitForDiscoveryStart should retry twice if task is not initially online", function() {
-        this.sandbox.stub(taskProtocol, 'requestProperties');
-        taskProtocol.requestProperties.onFirstCall().rejects(new Errors.RequestTimedOutError(""));
-        taskProtocol.requestProperties.onSecondCall().rejects(new Errors.RequestTimedOutError(""));
-        taskProtocol.requestProperties.onThirdCall().resolves();
-
         return profileApiService.waitForDiscoveryStart("testnodeid")
         .then(function() {
-            expect(taskProtocol.requestProperties).to.have.been.calledThrice;
+            expect(subscription.request).to.have.been.calledThrice;
         });
     });
 
@@ -118,7 +130,6 @@ describe("Http.Services.Api.Profiles", function () {
                 type: 'compute'
             };
             this.sandbox.stub(waterline.nodes, 'findByIdentifier').resolves(node);
-            this.sandbox.stub(taskProtocol, 'activeTaskExists').rejects(new Error(''));
             this.sandbox.stub(profileApiService, 'runDiscovery').resolves();
 
             return profileApiService.getNode('testmac')
@@ -130,7 +141,6 @@ describe("Http.Services.Api.Profiles", function () {
         it("getNode should do nothing for a node with an active discovery workflow", function() {
             node.discovered.resolves(false);
             this.sandbox.stub(waterline.nodes, 'findByIdentifier').resolves(node);
-            this.sandbox.stub(taskProtocol, 'activeTaskExists').resolves();
             this.sandbox.stub(profileApiService, 'runDiscovery').resolves();
 
             return expect(profileApiService.getNode('testmac')).to.become(node);
@@ -139,7 +149,6 @@ describe("Http.Services.Api.Profiles", function () {
         it("getNode should do nothing for a node with an active discovery workflow", function() {
             node.discovered.resolves(false);
             this.sandbox.stub(waterline.nodes, 'findByIdentifier').resolves(node);
-            this.sandbox.stub(taskProtocol, 'activeTaskExists').resolves();
             this.sandbox.stub(profileApiService, 'runDiscovery').resolves();
 
             return expect(profileApiService.getNode('testmac')).to.become(node);
@@ -190,12 +199,11 @@ describe("Http.Services.Api.Profiles", function () {
                 }
             };
             this.sandbox.stub(workflowApiService, 'findActiveGraphForTarget').resolves(undefined);
-            this.sandbox.stub(taskProtocol, 'requestProperties').resolves();
-
+            
             return profileApiService.renderProfileFromTaskOrNode(node)
             .then(function(result) {
                 expect(workflowApiService.findActiveGraphForTarget).to.have.been.calledOnce;
-                expect(taskProtocol.requestProperties).to.not.be.called;
+                expect(subscription.request).to.not.be.called;
                 expect(result).to.deep.equal(bootSettingsFailure);
             });
         });
@@ -211,12 +219,11 @@ describe("Http.Services.Api.Profiles", function () {
             };
 
             this.sandbox.stub(workflowApiService, 'findActiveGraphForTarget').resolves(undefined);
-            this.sandbox.stub(taskProtocol, 'requestProperties').resolves();
-
+            
             return profileApiService.renderProfileFromTaskOrNode(node)
             .then(function(result) {
                 expect(workflowApiService.findActiveGraphForTarget).to.have.been.calledOnce;
-                expect(taskProtocol.requestProperties).to.not.be.called;
+                expect(subscription.request).to.not.be.called;
                 expect(result).to.deep.equal(node.bootSettings);
             });
         });
@@ -231,12 +238,11 @@ describe("Http.Services.Api.Profiles", function () {
                 }
             };
             this.sandbox.stub(workflowApiService, 'findActiveGraphForTarget').resolves(undefined);
-            this.sandbox.stub(taskProtocol, 'requestProperties').resolves();
-
+            
             return profileApiService.renderProfileFromTaskOrNode(node)
             .then(function(result) {
                 expect(workflowApiService.findActiveGraphForTarget).to.have.been.calledOnce;
-                expect(taskProtocol.requestProperties).to.not.be.called;
+                expect(subscription.request).to.not.be.called;
                 expect(result).to.deep.equal(activeGraphFailure);
             });
         });
@@ -246,14 +252,12 @@ describe("Http.Services.Api.Profiles", function () {
             var graph = { context: {} };
 
             this.sandbox.stub(workflowApiService, 'findActiveGraphForTarget').resolves(graph);
-            this.sandbox.stub(taskProtocol, 'requestProfile').resolves('profile');
-            this.sandbox.stub(taskProtocol, 'requestProperties').resolves({});
-
+            
             return profileApiService.renderProfileFromTaskOrNode(node)
             .then(function(result) {
                 expect(workflowApiService.findActiveGraphForTarget).to.have.been.calledOnce;
-                expect(taskProtocol.requestProfile).to.have.been.calledOnce;
-                expect(taskProtocol.requestProperties).to.have.been.calledOnce;
+                expect(subscription.request).to.have.been.calledOnce;
+                expect(subscription.request).to.have.been.calledOnce;
                 expect(result).to.deep.equal({
                     context: graph.context,
                     profile: 'profile',
@@ -273,14 +277,12 @@ describe("Http.Services.Api.Profiles", function () {
             };
 
             this.sandbox.stub(workflowApiService, 'findActiveGraphForTarget').resolves(true);
-            this.sandbox.stub(taskProtocol, 'requestProfile').resolves('profile');
-            this.sandbox.stub(taskProtocol, 'requestProperties').rejects(new Error(''));
-
+            
             return profileApiService.renderProfileFromTaskOrNode(node)
             .then(function(result) {
                 expect(workflowApiService.findActiveGraphForTarget).to.have.been.calledOnce;
-                expect(taskProtocol.requestProfile).to.have.been.calledOnce;
-                expect(taskProtocol.requestProperties).to.have.been.calledOnce;
+                expect(subscription.request).to.have.been.calledOnce;
+                expect(subscription.request).to.have.been.calledOnce;
                 expect(result).to.deep.equal(retrieveProperitesFailure);
             });
         });
